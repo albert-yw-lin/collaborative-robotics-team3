@@ -9,11 +9,9 @@ dependencies = [
     "mujoco>=3.2.0",
     "numpy>=1.26.0,<2.0",
     "glfw>=2.8.0",
-
     # Visualization
     "opencv-python>=4.0.0",
     "pillow>=11.0.0",
-
     # Robotics / IK (mink + its dependencies)
     "mink>=0.0.6",
     "pin>=2.7.0",
@@ -21,9 +19,11 @@ dependencies = [
     "hpp-fcl>=2.4.0",
     "qpsolvers>=4.5.0",
     "quadprog>=0.1.13",
-
     # Hardware (for real robot)
     "pyrealsense2>=2.55.0",
+    "catkin-pkg>=1.1.0",
+    "empy==3.3.4",
+    "lark>=1.1.0",
 ]
 
 # =============================================================================
