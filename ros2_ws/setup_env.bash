@@ -42,26 +42,37 @@ if [ -d "$UV_SITE_PACKAGES" ]; then
     export PYTHONPATH="$UV_SITE_PACKAGES:$PYTHONPATH"
     echo "✓ Added uv packages to PYTHONPATH"
 else
-    echo "⚠ uv environment not found at $UV_SITE_PACKAGES"
-    echo "  Run 'cd $PROJECT_ROOT && uv sync' to create it"
+    echo "⚠ uv environment not found, running 'uv sync'..."
+    (cd "$PROJECT_ROOT" && uv sync)
+    if [ -d "$UV_SITE_PACKAGES" ]; then
+        export PYTHONPATH="$UV_SITE_PACKAGES:$PYTHONPATH"
+        echo "✓ Created uv environment and added to PYTHONPATH"
+    else
+        echo "✗ Failed to create uv environment"
+        echo "  Try running manually: cd $PROJECT_ROOT && uv sync"
+    fi
 fi
 
 # 3. Set repo root for finding simulation assets
 export TIDYBOT_REPO_ROOT="$PROJECT_ROOT"
 echo "✓ Set TIDYBOT_REPO_ROOT=$PROJECT_ROOT"
 
-# 4. Source the ROS2 workspace if built
+# 4. Build and source the ROS2 workspace
 if [ -f "$SCRIPT_DIR/install/setup.bash" ]; then
     source "$SCRIPT_DIR/install/setup.bash"
     echo "✓ Sourced ROS2 workspace (ros2_ws)"
 else
-    echo "⚠ Workspace not built yet. Run:"
-    echo "  cd $SCRIPT_DIR && colcon build"
+    echo "⚠ Workspace not built yet, running 'colcon build'..."
+    (cd "$SCRIPT_DIR" && colcon build)
+    if [ -f "$SCRIPT_DIR/install/setup.bash" ]; then
+        source "$SCRIPT_DIR/install/setup.bash"
+        echo "✓ Built and sourced ROS2 workspace (ros2_ws)"
+    else
+        echo "✗ Failed to build workspace"
+        echo "  Try running manually: cd $SCRIPT_DIR && colcon build"
+        return 1
+    fi
 fi
-
-# 5. Source install/setup.bash
-source "$SCRIPT_DIR/install/setup.bash"
-echo "✓ Sourced install/setup.bash"
 
 echo ""
 echo "Environment ready!"
