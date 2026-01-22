@@ -24,20 +24,28 @@ fi
 # Remove any .venv/bin from PATH (in case it was added manually)
 export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "\.venv/bin" | tr '\n' ':' | sed 's/:$//')
 
-# 1. Source ROS2 Humble (uses system Python with ROS2 packages)
-if [ -f /opt/ros/humble/setup.bash ]; then
+# 1. Source ROS2 (detect Humble or Jazzy)
+if [ -f /opt/ros/jazzy/setup.bash ]; then
+    source /opt/ros/jazzy/setup.bash
+    ROS_DISTRO="jazzy"
+    PYTHON_VERSION="3.12"
+    echo "✓ Sourced ROS2 Jazzy"
+elif [ -f /opt/ros/humble/setup.bash ]; then
     source /opt/ros/humble/setup.bash
+    ROS_DISTRO="humble"
+    PYTHON_VERSION="3.10"
     echo "✓ Sourced ROS2 Humble"
 else
-    echo "✗ ROS2 Humble not found at /opt/ros/humble"
-    echo "  Install with: sudo apt install ros-humble-desktop"
+    echo "✗ ROS2 not found (checked Humble and Jazzy)"
+    echo "  Install with: sudo apt install ros-humble-desktop  (Ubuntu 22.04)"
+    echo "            or: sudo apt install ros-jazzy-desktop   (Ubuntu 24.04)"
     return 1
 fi
 
 # 2. Add uv venv site-packages to PYTHONPATH (for mujoco, mink, numpy, etc.)
 #    This lets ROS2's Python import your uv-managed packages WITHOUT
 #    changing which python binary is used (which would break colcon build)
-UV_SITE_PACKAGES="$PROJECT_ROOT/.venv/lib/python3.10/site-packages"
+UV_SITE_PACKAGES="$PROJECT_ROOT/.venv/lib/python$PYTHON_VERSION/site-packages"
 if [ -d "$UV_SITE_PACKAGES" ]; then
     export PYTHONPATH="$UV_SITE_PACKAGES:$PYTHONPATH"
     echo "✓ Added uv packages to PYTHONPATH"

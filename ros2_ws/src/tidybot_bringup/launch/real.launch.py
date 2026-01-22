@@ -114,7 +114,7 @@ def generate_launch_description():
 
     # RealSense camera (replaces MuJoCo camera rendering)
     # Uses the official realsense2_camera package
-    # Install: sudo apt install ros-humble-realsense2-camera
+    # Install: sudo apt install ros-${ROS_DISTRO}-realsense2-camera
     realsense_camera = Node(
         package='realsense2_camera',
         executable='realsense2_camera_node',
