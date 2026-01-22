@@ -24,6 +24,11 @@ docker run -p 6080:80 --shm-size=2g \
     peasant98/tidybot2:humble
 
 # Access via browser: http://127.0.0.1:6080/
+
+# You can open a terminal there, and then go to the /home/ubuntu/Desktop/collaborative folder and run
+./setup.sh
+
+# (this will give you options to install everything, just the sim, etc.
 ```
 
 **Syncing updates:** With the volume mount, any `git pull` on your host machine will immediately reflect inside the running container.
@@ -47,7 +52,7 @@ git clone https://github.com/armlabstanford/collaborative-robotics-2026.git
 cd collaborative-robotics-2026
 
 # Run the setup script (installs ROS2, dependencies, and builds workspace)
-./setup.sh --install
+./setup.sh
 ```
 
 The setup script handles everything: system dependencies, ROS2 Humble, Python environment (`uv sync`), and building the ROS2 workspace (`colcon build`).
