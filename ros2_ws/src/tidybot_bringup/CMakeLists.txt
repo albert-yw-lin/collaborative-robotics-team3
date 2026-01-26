@@ -25,6 +25,14 @@ install(PROGRAMS
   scripts/test_camera.py
   scripts/test_arms.py
   scripts/test_planner.py
+  scripts/test_real_hardware.py
+  scripts/test_base_real.py
+  scripts/test_arms_real.py
+  scripts/test_grippers_real.py
+  scripts/test_pan_tilt_real.py
+  scripts/test_torque_hold.py
+  scripts/test_full_robot.py
+  scripts/diagnose_dynamixel.py
   scripts/example_state_machine.py
   scripts/trajectory_tracking.py
   DESTINATION lib/${PROJECT_NAME}

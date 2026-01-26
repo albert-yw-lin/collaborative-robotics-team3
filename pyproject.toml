@@ -26,6 +26,12 @@ dependencies = [
     "lark>=1.1.0",
     "trimesh>=4.11.1",
     "fast-simplification>=0.1.13",
+    "phoenix6>=26.1.0",
+    "ruckig>=0.15.3",
+    "dynamixel-sdk>=4.0.3",
+    "threadpoolctl>=3.6.0",
+    "transforms3d>=0.4.1",
+    "modern-robotics>=1.1.0",
 ]
 
 # =============================================================================

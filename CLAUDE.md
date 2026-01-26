@@ -14,7 +14,7 @@
 ### Robot Configuration
 - **Mobile Base:** 3 DOF (x, y, theta)
 - **Arms:** 2x WX250s (6 DOF each: waist, shoulder, elbow, forearm_roll, wrist_angle, wrist_rotate)
-- **Grippers:** 2x Robotiq 2F-85
+- **Grippers:** 2x Interbotix gripper (prismatic fingers)
 - **Camera:** Pan-tilt RealSense D435 (RGB + Depth)
 
 ## Quick Start (Ubuntu 22.04)
@@ -112,6 +112,62 @@ ros2 launch tidybot_bringup sim.launch.py use_rviz:=false
 ros2 launch tidybot_bringup sim.launch.py show_mujoco_viewer:=false
 ```
 
+### Option 3: Real Hardware (Local)
+
+**On the robot mini PC:**
+```bash
+cd ros2_ws
+source setup_env.bash
+ros2 launch tidybot_bringup real.launch.py
+```
+
+### Option 4: Remote Control (Network)
+
+Control TidyBot2 from your own machine over the network using native ROS2.
+
+**Step 1: Start robot (on mini PC via SSH):**
+```bash
+ssh locobot@<ROBOT_IP>
+export ROS_DOMAIN_ID=42
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+cd ~/collaborative-robotics-2026/ros2_ws
+source install/setup.bash
+ros2 launch tidybot_bringup robot.launch.py
+```
+
+**Step 2: Connect from your machine:**
+```bash
+# Install Cyclone DDS (one time)
+sudo apt install ros-humble-rmw-cyclonedds-cpp
+
+# Set environment (must match robot!)
+export ROS_DOMAIN_ID=42
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+
+# Build tidybot_msgs on your machine (one time)
+cd ~/ros2_ws/src
+git clone https://github.com/Stanford-ARM-Lab/collaborative-robotics-2026.git
+cd ~/ros2_ws && colcon build --packages-select tidybot_msgs
+source install/setup.bash
+
+# Test connection
+ros2 topic list  # Should see /cmd_vel, /joint_states, etc.
+```
+
+**Step 3: Control the robot:**
+```bash
+# Move base forward
+ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1}}" -r 10
+
+# Run comprehensive test
+ros2 run tidybot_bringup test_real_hardware.py
+
+# Launch RViz remotely
+ros2 launch tidybot_client client_rviz.launch.py
+```
+
+See [docs/remote_setup.md](docs/remote_setup.md) for detailed network configuration.
+
 ## Project Structure
 
 ```
@@ -120,14 +176,20 @@ collaborative-robotics-2026/
 │   ├── scripts/             # Test scripts (test_move.py, pick_up_block.py)
 │   └── assets/              # MuJoCo models and meshes
 │
+├── docs/
+│   └── remote_setup.md      # Remote control setup guide
+│
 └── ros2_ws/                 # ROS2 workspace
     ├── setup_env.bash       # Environment setup (source this!)
     └── src/
         ├── tidybot_bringup/         # Launch files & test scripts
+        ├── tidybot_client/          # Remote client utilities & DDS configs
+        ├── tidybot_control/         # Arm/base/pan-tilt controllers
         ├── tidybot_description/     # URDF/XACRO robot model
+        ├── tidybot_ik/              # Motion planning & IK
         ├── tidybot_msgs/            # Custom messages & services
-        ├── tidybot_mujoco_bridge/   # MuJoCo-ROS2 bridge
-        └── tidybot_control/         # Arm/base controllers
+        ├── tidybot_mujoco_bridge/   # MuJoCo-ROS2 bridge (simulation)
+        └── tidybot_network_bridge/  # Image compression for remote
 ```
 
 ## Key ROS2 Topics
@@ -247,6 +309,45 @@ docker run -p 6080:80 --shm-size=2g \
 | `tidybot-ros-no-rviz` | ROS2 + MuJoCo (no RViz) |
 | `tidybot-test-base` | Test base movement |
 | `tidybot-test-arms` | Test arm control |
+
+## Real Hardware Setup
+
+### Motor ID Configuration (Shared U2D2 Bus)
+
+If using a **single U2D2** for all Dynamixel motors (both arms + pan-tilt), you must remap motor IDs to avoid conflicts:
+
+| Component | Default IDs | Remapped IDs |
+|-----------|-------------|--------------|
+| Right Arm | 1-6, gripper 7 | 1-6, gripper 7 (keep default) |
+| Left Arm | 1-6, gripper 7 | 11-16, gripper 17 |
+| Pan-Tilt | 1-2 | 21-22 |
+
+**How to remap motor IDs using Dynamixel Wizard 2.0:**
+1. Connect **only ONE motor** at a time to a U2D2
+2. Open Dynamixel Wizard 2.0 and scan for the motor
+3. Select the motor and go to the Control Table
+4. Find `ID` (address 7) and change it to the new value
+5. Click "Save" - the motor will now respond to the new ID
+6. Repeat for each motor that needs remapping
+
+**If using separate U2D2s** (one per arm + one for pan-tilt), you can keep default IDs.
+
+### Phoenix 6 Mobile Base
+
+The mobile base uses Phoenix 6 (CTRE) motors over CAN bus. Prerequisites:
+- Phoenix 6 library: `pip install phoenix6`
+- Ruckig trajectory library: `pip install ruckig`
+- CAN interface configured on mini PC
+- Real-time permissions (edit `/etc/security/limits.d/99-realtime.conf`)
+
+### Environment Variables
+
+Add to `~/.bashrc` on the robot mini PC:
+```bash
+export TIDYBOT2_PATH=/home/locobot/tidybot2
+export ROS_DOMAIN_ID=42
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+```
 
 ## Authors
 

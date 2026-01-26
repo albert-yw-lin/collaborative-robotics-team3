@@ -23,9 +23,10 @@ setup(
     entry_points={
         'console_scripts': [
             'arm_controller_node = tidybot_control.arm_controller_node:main',
-            'velocity_controller_node = tidybot_control.velocity_controller_node:main',
-            'base_controller_node = tidybot_control.base_controller_node:main',
             'interbotix_arm_node = tidybot_control.interbotix_arm_node:main',
+            'phoenix6_base_node = tidybot_control.phoenix6_base_node:main',
+            'pan_tilt_node = tidybot_control.pan_tilt_node:main',
+            'dynamixel_bus_node = tidybot_control.dynamixel_bus_node:main',
         ],
     },
 )
