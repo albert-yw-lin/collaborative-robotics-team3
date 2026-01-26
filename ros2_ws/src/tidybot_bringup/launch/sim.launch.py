@@ -36,7 +36,7 @@ def generate_launch_description():
         # Fallback: assume standard location
         repo_root = os.path.expanduser('~/Documents/collaborative-robotics-2026')
 
-    model_path = os.path.join(repo_root, 'simulation', 'assets', 'mujoco', 'scene_wx200_bimanual.xml')
+    model_path = os.path.join(repo_root, 'simulation', 'assets', 'mujoco', 'scene_wx250s_bimanual.xml')
 
     # Declare arguments
     declare_use_rviz = DeclareLaunchArgument(
@@ -60,7 +60,7 @@ def generate_launch_description():
     )
 
     # URDF from xacro
-    urdf_path = PathJoinSubstitution([pkg_description, 'urdf', 'tidybot_wx200.urdf.xacro'])
+    urdf_path = PathJoinSubstitution([pkg_description, 'urdf', 'tidybot_wx250s.urdf.xacro'])
     robot_description = Command(['xacro ', urdf_path])
 
     # ========== NODES ==========
@@ -118,7 +118,7 @@ def generate_launch_description():
 
     # Motion planner (IK + collision checking)
     # Uses the bimanual model (no scene objects) for IK solving
-    ik_model_path = os.path.join(repo_root, 'simulation', 'assets', 'mujoco', 'tidybot_wx200_bimanual.xml')
+    ik_model_path = os.path.join(repo_root, 'simulation', 'assets', 'mujoco', 'tidybot_wx250s_bimanual.xml')
     motion_planner = Node(
         package='tidybot_ik',
         executable='motion_planner_node',
