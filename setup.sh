@@ -149,6 +149,7 @@ install_ros2() {
         ros-$ROS_DISTRO-rviz2 \
         ros-$ROS_DISTRO-rosidl-typesupport-c \
         ros-$ROS_DISTRO-rosidl-typesupport-cpp \
+        ros-$ROS_DISTRO-dynamixel-sdk \
         python3-colcon-common-extensions
 
     print_status "ROS2 $ROS_DISTRO installed successfully!"
