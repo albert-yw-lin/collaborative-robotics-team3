@@ -199,12 +199,12 @@ class MuJoCoBridgeNode(Node):
         # Target positions for all actuators (initialized from data.ctrl which may have keyframe values)
         self.target_ctrl = self.data.ctrl.copy()
 
-        # Ensure gripper positions are valid (minimum -0.014)
+        # Ensure gripper positions are valid (minimum 0.015)
         for name in ['right_left_finger', 'right_right_finger', 'left_left_finger', 'left_right_finger']:
             if name in self.actuator_ids:
                 idx = self.actuator_ids[name]
-                if self.target_ctrl[idx] < -0.014:
-                    self.target_ctrl[idx] = -0.014
+                if self.target_ctrl[idx] < 0.015:
+                    self.target_ctrl[idx] = 0.015
 
         # QoS profile - use RELIABLE for RViz compatibility
         qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
@@ -327,9 +327,9 @@ class MuJoCoBridgeNode(Node):
         if len(msg.data) < 1:
             return
         # Convert normalized position to finger position
-        # 0.0 = open (0.022m), 1.0 = closed (-0.014m)
-        # Maps [0,1] to [0.022, -0.014] (range of 0.036m)
-        pos = 0.022 - msg.data[0] * 0.036
+        # 0.0 = open (0.037m), 1.0 = closed (0.015m)
+        # Maps [0,1] to [0.037, 0.015] (range of 0.022m)
+        pos = 0.037 - msg.data[0] * 0.022
         with self.lock:
             if 'right_left_finger' in self.actuator_ids:
                 idx = self.actuator_ids['right_left_finger']
@@ -344,8 +344,8 @@ class MuJoCoBridgeNode(Node):
         if len(msg.data) < 1:
             return
         # Convert normalized position to finger position
-        # 0.0 = open (0.022m), 1.0 = closed (-0.014m)
-        pos = 0.022 - msg.data[0] * 0.036
+        # 0.0 = open (0.037m), 1.0 = closed (0.015m)
+        pos = 0.037 - msg.data[0] * 0.022
         with self.lock:
             if 'left_left_finger' in self.actuator_ids:
                 self.target_ctrl[self.actuator_ids['left_left_finger']] = pos
@@ -633,7 +633,7 @@ class MuJoCoBridgeNode(Node):
         try:
             rgb_msg = self.cv_bridge.cv2_to_imgmsg(rgb_image, encoding='rgb8')
             rgb_msg.header.stamp = now
-            rgb_msg.header.frame_id = 'd435_color_optical_frame'
+            rgb_msg.header.frame_id = 'camera_color_optical_frame'
             self.rgb_pub.publish(rgb_msg)
         except Exception as e:
             self.get_logger().warn(f'Failed to publish RGB image: {e}')
@@ -644,7 +644,7 @@ class MuJoCoBridgeNode(Node):
             depth_mm = (depth_image * 1000).astype(np.uint16)
             depth_msg = self.cv_bridge.cv2_to_imgmsg(depth_mm, encoding='16UC1')
             depth_msg.header.stamp = now
-            depth_msg.header.frame_id = 'd435_depth_optical_frame'
+            depth_msg.header.frame_id = 'camera_depth_optical_frame'
             self.depth_pub.publish(depth_msg)
         except Exception as e:
             self.get_logger().warn(f'Failed to publish depth image: {e}')
@@ -652,7 +652,7 @@ class MuJoCoBridgeNode(Node):
         # Publish camera info
         camera_info = CameraInfo()
         camera_info.header.stamp = now
-        camera_info.header.frame_id = 'd435_color_optical_frame'
+        camera_info.header.frame_id = 'camera_color_optical_frame'
         camera_info.width = 640
         camera_info.height = 480
         # Approximate D435 intrinsics (fovy=42 degrees)

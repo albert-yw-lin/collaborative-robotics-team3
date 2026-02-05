@@ -7,17 +7,28 @@ Launches:
 - RealSense camera driver
 - Robot state publisher (URDF + TF)
 - Image compression (optional, for remote clients)
+- Arm/gripper wrappers for sim-compatible topics (optional, on by default)
 - RViz (optional)
 
 Hardware Setup (Dual U2D2):
-    - U2D2 #1 (/dev/ttyUSB0): Right arm (IDs 1-9) + Pan-tilt (IDs 21-22)
-    - U2D2 #2 (/dev/ttyUSB1): Left arm (IDs 11-19)
+    - U2D2 #1 (/dev/ttyUSB_RIGHT): Right arm (IDs 1-9) + Pan-tilt (IDs 21-22)
+    - U2D2 #2 (/dev/ttyUSB_LEFT): Left arm (IDs 11-19)
 
 Usage:
     ros2 launch tidybot_bringup real.launch.py
     ros2 launch tidybot_bringup real.launch.py use_rviz:=false
     ros2 launch tidybot_bringup real.launch.py use_base:=false  # Disable base
     ros2 launch tidybot_bringup real.launch.py use_left_arm:=false  # Right arm only
+    ros2 launch tidybot_bringup real.launch.py use_sim_topics:=false  # Disable sim-compatible topics
+
+Sim-to-Real Topic Compatibility (use_sim_topics:=true, default):
+    When enabled, the following simulation-compatible topics are available:
+    - /right_arm/joint_cmd (Float64MultiArray) -> arm positions
+    - /left_arm/joint_cmd (Float64MultiArray) -> arm positions
+    - /right_gripper/cmd (Float64MultiArray) -> gripper command
+    - /left_gripper/cmd (Float64MultiArray) -> gripper command
+
+    This allows the same code to work on both simulation and real hardware.
 
 Prerequisites:
 - Phoenix 6 library installed (via uv): uv add phoenix6
@@ -51,6 +62,8 @@ def launch_setup(context, *args, **kwargs):
     use_camera = LaunchConfiguration('use_camera').perform(context) == 'true'
     use_compression = LaunchConfiguration('use_compression').perform(context) == 'true'
     use_rviz = LaunchConfiguration('use_rviz').perform(context) == 'true'
+    use_planner = LaunchConfiguration('use_planner').perform(context) == 'true'
+    use_sim_topics = LaunchConfiguration('use_sim_topics').perform(context) == 'true'
     load_configs = LaunchConfiguration('load_configs').perform(context) == 'true'
 
     # Get project root for uv packages
@@ -61,10 +74,13 @@ def launch_setup(context, *args, **kwargs):
     # UV virtual environment site-packages
     python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
     uv_site_packages = os.path.join(project_root, '.venv', 'lib', f'python{python_version}', 'site-packages')
+    # cmeel packages (pinocchio, hpp-fcl) are in a nested directory
+    cmeel_site_packages = os.path.join(uv_site_packages, 'cmeel.prefix', 'lib', f'python{python_version}', 'site-packages')
 
-    # Build PYTHONPATH with uv packages
+    # Build PYTHONPATH with uv packages (include both paths)
     existing_pythonpath = os.environ.get('PYTHONPATH', '')
-    new_pythonpath = f"{uv_site_packages}:{existing_pythonpath}" if existing_pythonpath else uv_site_packages
+    uv_paths = f"{uv_site_packages}:{cmeel_site_packages}"
+    new_pythonpath = f"{uv_paths}:{existing_pythonpath}" if existing_pythonpath else uv_paths
 
     # Environment for nodes needing uv packages
     hw_node_env = {
@@ -90,12 +106,14 @@ def launch_setup(context, *args, **kwargs):
         }]
     ))
 
-    # Joint state aggregator - combines joint states from both arms into /joint_states
+    # Joint state aggregator - combines joint states from arms and pan-tilt into /joint_states
     # This is needed because each xs_sdk publishes to its own namespace
     if use_arms:
         source_list = ['/right_arm/joint_states']
         if use_left_arm:
             source_list.append('/left_arm/joint_states')
+        if use_pan_tilt:
+            source_list.append('/pan_tilt/joint_states')
 
         nodes.append(Node(
             package='joint_state_publisher',
@@ -123,6 +141,15 @@ def launch_setup(context, *args, **kwargs):
                 'max_angular_accel': 0.79,
                 'publish_rate': 50.0,
             }]
+        ))
+    else:
+        # Static transform for odom -> base_link when base is disabled
+        # This allows RViz to display the robot model
+        nodes.append(Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='static_odom_publisher',
+            arguments=['0', '0', '0', '0', '0', '0', 'odom', 'base_link'],
         ))
 
     # Interbotix xs_sdk nodes for arms
@@ -166,26 +193,51 @@ def launch_setup(context, *args, **kwargs):
                 output='screen',
             ))
 
+        # Sim-compatible topic wrappers (when use_sim_topics:=true)
+        # Allows same code to work on simulation and real hardware
+        if use_sim_topics:
+            # Arm wrapper - translates /right_arm/joint_cmd and /left_arm/joint_cmd
+            # to Interbotix SDK /right_arm/commands/joint_group
+            nodes.append(Node(
+                package='tidybot_control',
+                executable='arm_wrapper_node',
+                name='arm_wrapper',
+                output='screen',
+            ))
+
+            # Gripper wrapper - translates /right_gripper/cmd and /left_gripper/cmd
+            # to Interbotix SDK commands
+            nodes.append(Node(
+                package='tidybot_control',
+                executable='gripper_wrapper_node',
+                name='gripper_wrapper',
+                output='screen',
+            ))
+
     # RealSense camera
     if use_camera:
         nodes.append(Node(
             package='realsense2_camera',
             executable='realsense2_camera_node',
-            name='realsense_camera',
+            name='realsense',
             output='screen',
             parameters=[{
+                'camera_name': 'camera',
+                'camera_namespace': '',
+                'base_frame_id': 'link',
                 'enable_color': True,
                 'enable_depth': True,
-                'color_width': 640,
-                'color_height': 480,
-                'depth_width': 640,
-                'depth_height': 480,
-                'color_fps': 30.0,
-                'depth_fps': 30.0,
+                'enable_infra1': False,
+                'enable_infra2': False,
+                'publish_tf': False,
+                'rgb_camera.color_profile': '640x480x15',
+                'depth_module.depth_profile': '640x480x15',
             }],
             remappings=[
-                ('/camera/color/image_raw', '/camera/color/image_raw'),
-                ('/camera/depth/image_rect_raw', '/camera/depth/image_raw'),
+                ('/camera/realsense/color/image_raw', '/camera/color/image_raw'),
+                ('/camera/realsense/depth/image_rect_raw', '/camera/depth/image_raw'),
+                ('/camera/realsense/color/camera_info', '/camera/color/camera_info'),
+                ('/camera/realsense/depth/camera_info', '/camera/depth/camera_info'),
             ]
         ))
 
@@ -213,6 +265,25 @@ def launch_setup(context, *args, **kwargs):
             name='rviz2',
             arguments=['-d', rviz_config],
             parameters=[{'use_sim_time': False}]
+        ))
+
+    # Motion planner (IK) for real hardware
+    if use_planner:
+        urdf_path = PathJoinSubstitution([pkg_description, 'urdf', 'tidybot_wx250s.urdf.xacro'])
+        nodes.append(Node(
+            package='tidybot_ik',
+            executable='motion_planner_real_node',
+            name='motion_planner',
+            output='screen',
+            additional_env=hw_node_env,
+            parameters=[{
+                'urdf_path': urdf_path,
+                'ik_dt': 0.3,
+                'ik_max_iterations': 200,
+                'position_tolerance': 0.03,  # 3cm tolerance for real hardware
+                'orientation_tolerance': 0.1,
+                'min_collision_distance': 0.05,
+            }]
         ))
 
     return nodes
@@ -248,6 +319,14 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'use_compression', default_value='false',
             description='Launch image compression for remote clients'
+        ),
+        DeclareLaunchArgument(
+            'use_planner', default_value='false',
+            description='Launch IK motion planner for real hardware'
+        ),
+        DeclareLaunchArgument(
+            'use_sim_topics', default_value='true',
+            description='Enable sim-compatible topics (/right_arm/joint_cmd, /left_arm/joint_cmd, etc.)'
         ),
         DeclareLaunchArgument(
             'load_configs', default_value='true',
